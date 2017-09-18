@@ -1,0 +1,60 @@
+# link from :
+# https://raw.githubusercontent.com/hyperledger/fabric/v0.6/examples/sdk/node/docker-compose.yml
+# 
+# three container: peer, starter, explorer. you can run the follow command to build it:
+# docker-compose -f starter-kit.yml up
+# do not forget the .env file with code "COMPOSE_CONVERT_WINDOWS_PATHS=1" in windows
+#
+
+peer:
+  container_name: peer
+  image: hyperledger/fabric-peer:x86_64-0.6.1-preview
+  environment:
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=unix:///var/run/docker.sock
+    - CORE_LOGGING_LEVEL=DEBUG
+    - CORE_PEER_ID=peer
+    - CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=noops
+  ports:
+    - "7050:7050"
+  # this gives access to the docker host daemon to deploy chain code in network mode
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  # have the peer wait 10 sec for membersrvc to start
+  #  the following is to run the peer in Developer mode - also set sample DEPLOY_MODE=dev
+  command: peer node start --peer-chaincodedev
+  # command: sh -c "sleep 10; peer node start --peer-chaincodedev"
+  # command: sh -c "sleep 10; peer node start"
+
+starter:
+  container_name: starter
+  image: hyperledger/fabric-starter-kit
+  volumes:
+    # tweak this to map a local developmnt directory tree into the container
+    - ./mycode:/mycode
+    # - ~/mytest:/user/mytest
+  environment:
+    - PEER_ADDRESS=peer:7051
+    - KEY_VALUE_STORE=/tmp/hl_sdk_node_key_value_store
+    # set to following to 'dev' if peer running in Developer mode
+    # - DEPLOY_MODE=dev
+    # - CORE_CHAINCODE_ID_NAME=mycc
+    # - CORE_PEER_ADDRESS=peer:7051
+  # the following command will start the chain code when this container starts and ready it for deployment by the app
+  # command: sh -c "sleep 20; /opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02/chaincode_example02"
+  stdin_open: true
+  tty: true
+  links:
+    - peer
+
+explorer:
+  container_name: explorer
+  image: yeasy/blockchain-explorer:latest
+  restart: unless-stopped
+  environment:
+      - HYP_REST_ENDPOINT=http://peer:7050
+  ports:
+    - "9090:9090"
+  # to connect the peer container
+  links:
+    - peer
